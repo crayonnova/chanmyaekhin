@@ -1,0 +1,866 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Chan Myae Khin — Product Designer</title>
+    <meta name="description" content="Chan Myae Khin is a product designer who makes complex tools feel simple.">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,300..800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://unpkg.com/lenis@1.3.27/dist/lenis.css">
+    <script src="https://unpkg.com/lenis@1.3.27/dist/lenis.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.13.0/gsap.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.13.0/ScrollTrigger.min.js"></script>
+    <style>
+      /* Casual (default): light, soft curves. Inverse tokens style the contact surface. */
+      :root {
+        --bg: #E6E9E2;
+        --fg: #15232A;
+        --muted: #5B6A6C;
+        --line: #A9B4A8;
+        --accent: #2A45C9;
+        --inv-bg: #15232A;
+        --inv-fg: #E6E9E2;
+        --inv-muted: #8FA0A2;
+        --inv-accent: #8EA2FF;
+        --inv-line: #2E3F46;
+        --r-portrait: 999px 999px 24px 24px;
+        --r-pill: 999px;
+        --r-dot: 50%;
+        --r-focus: 4px;
+        --r-panel: 18px;
+        --gutter: clamp(16px, 4vw, 56px);
+        --surface: color-mix(in srgb, var(--fg) 6%, var(--bg)); /* experience section background */
+        --font: "Bricolage Grotesque", system-ui, sans-serif;
+      }
+      /* Professional: dark, sharp edges. */
+      :root[data-theme="professional"] {
+        --bg: #131B20;
+        --fg: #E4E8E3;
+        --muted: #8D9B9C;
+        --line: #4A5C63;
+        --accent: #8EA2FF;
+        --inv-bg: #E4E8E3;
+        --inv-fg: #131B20;
+        --inv-muted: #56656A;
+        --inv-accent: #2A45C9;
+        --inv-line: #C2CAC0;
+        --r-portrait: 0;
+        --r-pill: 0;
+        --r-dot: 0;
+        --r-focus: 0;
+        --r-panel: 0px;
+      }
+      :root[data-theme="professional"] { color-scheme: dark; }
+
+      /* Theme switch crossfade (View Transitions API; browsers without it switch instantly) */
+      ::view-transition-old(root), ::view-transition-new(root) { animation-duration: .6s; animation-timing-function: cubic-bezier(.4,0,.2,1); }
+      @media (prefers-reduced-motion: reduce) {
+        ::view-transition-old(root), ::view-transition-new(root) { animation: none; }
+      }
+      *, *::before, *::after { box-sizing: border-box; }
+      html, body { margin: 0; }
+      body {
+        background: var(--bg);
+        color: var(--fg);
+        font-family: var(--font);
+        font-size: clamp(1rem, 0.95rem + 0.25vw, 1.125rem);
+        line-height: 1.55;
+        -webkit-font-smoothing: antialiased;
+        overflow-x: hidden;
+      }
+      img { display: block; max-width: 100%; }
+      a { color: inherit; }
+      :focus-visible { outline: 2px solid var(--accent); outline-offset: 4px; border-radius: var(--r-focus); }
+      .sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+
+      /* Masked lines: inner span slides up from below its clip */
+      .mask { display: block; overflow: hidden; }
+      .mask > span { display: block; }
+
+      /* ---------- Background pattern ----------
+         Fixed layer behind content. The ::after copy is tinted with the accent and only shows
+         inside a soft circle that follows the cursor. Casual uses dots, professional a square grid. */
+      .bg-pattern {
+        --pc: color-mix(in srgb, var(--fg) 11%, transparent);
+        --mx: -999px; --my: -999px; --sy: 0;
+        position: fixed; inset: 0; z-index: 0; pointer-events: none;
+      }
+      .bg-pattern, .bg-pattern::after {
+        background-image: radial-gradient(circle, var(--pc) 1.2px, transparent 1.7px);
+        background-size: 22px 22px;
+        background-position: 0 calc(var(--sy) * -0.15px);
+      }
+      :root[data-theme="professional"] .bg-pattern,
+      :root[data-theme="professional"] .bg-pattern::after {
+        background-image: linear-gradient(var(--pc) 1px, transparent 1px), linear-gradient(90deg, var(--pc) 1px, transparent 1px);
+        background-size: 44px 44px;
+      }
+      :root[data-theme="professional"] .bg-pattern { --pc: color-mix(in srgb, var(--fg) 6%, transparent); }
+      .bg-pattern::after {
+        --pc: color-mix(in srgb, var(--accent) 65%, transparent);
+        content: ""; position: absolute; inset: 0;
+        -webkit-mask-image: radial-gradient(220px circle at var(--mx) var(--my), #000, transparent);
+        mask-image: radial-gradient(220px circle at var(--mx) var(--my), #000, transparent);
+        opacity: var(--spot, 0); transition: opacity .5s;
+      }
+      main { position: relative; z-index: 1; }
+
+      /* ---------- Custom cursor ----------
+         Mouse only (enabled from JS). GSAP moves the outer elements; the inner spans carry the
+         state shapes, so CSS transitions and GSAP transforms never touch the same element.
+         Difference blend keeps it visible on any surface. */
+      .cursor { position: fixed; inset: 0; z-index: 100; pointer-events: none; mix-blend-mode: difference; color: #E6E9E2; opacity: 0; transition: opacity .3s; }
+      .cursor.is-visible { opacity: 1; }
+      .has-cursor, .has-cursor * { cursor: none !important; }
+      .cursor-ring, .cursor-dot { position: absolute; top: 0; left: 0; }
+      .cursor-ring > span, .cursor-dot > span, .cursor-ripple { position: absolute; border-radius: var(--r-pill); }
+      .cursor-ripple { width: 20px; height: 20px; margin: -10px 0 0 -10px; border: 1.5px solid currentColor; }
+      .cursor-ring > span {
+        --rw: 40px; --rh: 40px; /* overridden from JS to morph onto a control */
+        width: var(--rw); height: var(--rh); margin: calc(var(--rh) / -2) 0 0 calc(var(--rw) / -2);
+        border: 1.5px solid currentColor;
+      }
+      .cursor-ripple { top: 0; left: 0; }
+      .cursor-dot > span { width: 6px; height: 6px; margin: -3px 0 0 -3px; background: currentColor; }
+      .cursor-ring > span {
+        /* Release: quick spring back with a little overshoot */
+        transition: transform .45s cubic-bezier(.34,1.56,.64,1), background-color .3s, border-width .3s, border-color .3s, border-radius .4s,
+          width .45s cubic-bezier(.2,.7,.2,1), height .45s cubic-bezier(.2,.7,.2,1), margin .45s cubic-bezier(.2,.7,.2,1);
+      }
+      .cursor-dot > span { transition: transform .3s cubic-bezier(.2,.7,.2,1), border-radius .4s; }
+      /* Hold: slow contraction, so a long press visibly "charges" */
+      .cursor.is-down .cursor-ring > span { transform: scale(.55); transition: transform 1s cubic-bezier(.2,.7,.2,1), background-color .3s; background-color: color-mix(in srgb, currentColor 30%, transparent); }
+      .cursor.is-down .cursor-dot > span { transform: scale(1.6); }
+      /* Plain text: ring loses its width and becomes a caret bar; the dot keeps its press behaviour */
+      .cursor.is-text .cursor-ring > span { --rw: 2px; --rh: 26px; border-width: 0; background-color: currentColor; }
+      .cursor.is-down.is-text .cursor-ring > span { transform: scaleY(.7); }
+      /* Stuck: ring takes the hovered control's exact box and melts from outline into a soft fill */
+      .cursor.is-stuck .cursor-ring > span { transform: none; border-color: transparent; background-color: color-mix(in srgb, currentColor 14%, transparent); }
+      .cursor.is-stuck .cursor-dot > span { transform: scale(0); }
+      .cursor.is-stuck.is-down .cursor-ring > span { transform: scale(.88); background-color: color-mix(in srgb, currentColor 24%, transparent); transition: transform .25s cubic-bezier(.2,.7,.2,1), background-color .2s; }
+      /* Link: ring becomes a solid highlighter over the text; the difference blend inverts the text under it */
+      .cursor.is-mark .cursor-ring > span, .cursor.is-mark.is-down .cursor-ring > span { background-color: currentColor; border-radius: var(--r-focus); }
+      .cursor.is-mark.is-down .cursor-ring > span { transform: scale(.96); }
+
+      /* ---------- Header ---------- */
+      .site-header {
+        position: fixed; inset: 0 0 auto 0; z-index: 50;
+        display: flex; justify-content: space-between; align-items: center;
+        padding: 20px var(--gutter);
+        mix-blend-mode: difference; color: #E6E9E2;
+        transition: color .4s;
+      }
+      .site-header .section-toggle, .site-header .theme-switch, .site-header .resume-link { transition: background-color .4s; }
+      /* Past the hero: stop blending and sit the controls on the section's own colours for full contrast */
+      .site-header[data-surface="experience"], .site-header[data-surface="contact"] { mix-blend-mode: normal; }
+      .site-header[data-surface="experience"] { --hb: var(--surface); color: var(--fg); }
+      .site-header[data-surface="contact"] { --hb: var(--inv-bg); color: var(--inv-fg); }
+      .site-header[data-surface] .section-toggle, .site-header[data-surface] .theme-switch, .site-header[data-surface] .resume-link { background: var(--hb, transparent); }
+
+      /* Section menu: button names the section in view; its panel lists every section */
+      .section-toggle {
+        display: inline-flex; align-items: center; gap: 10px; height: 42px; padding: 0 14px 0 12px;
+        font: inherit; font-weight: 600; color: inherit; background: none; cursor: pointer;
+        border: 1px solid currentColor; border-radius: var(--r-pill);
+      }
+      .section-toggle .sec-icon { display: grid; }
+      .section-toggle svg { width: 18px; height: 18px; }
+      .section-toggle .chev { width: 14px; height: 14px; opacity: .7; transition: transform .35s cubic-bezier(.7,0,.2,1); }
+      .section-toggle[aria-expanded="true"] .chev { transform: rotate(180deg); }
+      .sec-label { position: relative; display: inline-block; height: 1.3em; overflow: hidden; }
+      .sec-label > span { position: absolute; top: 0; left: 0; line-height: 1.3; white-space: nowrap; }
+      .sections-panel {
+        position: fixed; z-index: 60; top: 72px; left: var(--gutter);
+        width: min(260px, calc(100vw - 2 * var(--gutter))); padding: 6px;
+        background: var(--bg); color: var(--fg);
+        border: 1px solid var(--line); border-radius: var(--r-panel);
+        box-shadow: 0 24px 48px -24px rgb(0 0 0 / .45);
+        transform-origin: top left; visibility: hidden;
+      }
+      .sections-panel ul { list-style: none; margin: 0; padding: 0; }
+      .sections-panel a {
+        display: flex; align-items: center; gap: 12px; padding: 11px 12px;
+        font-weight: 500; text-decoration: none;
+        border-radius: max(0px, calc(var(--r-panel) - 6px));
+        --cursor-radius: max(0px, calc(var(--r-panel) - 6px)); /* stuck cursor ring copies this shape */
+        transition: background-color .2s, color .2s;
+      }
+      .sections-panel a:hover, .sections-panel a:focus-visible { background: color-mix(in srgb, var(--fg) 7%, transparent); }
+      .sections-panel a:focus-visible { outline-offset: -2px; }
+      .has-cursor .sections-panel a:hover:not(:focus-visible) { background: none; } /* the cursor ring is the hover fill */
+      .sections-panel svg { width: 18px; height: 18px; flex: none; }
+      .sections-panel .mark { width: 6px; height: 6px; margin-left: auto; border-radius: var(--r-dot); background: currentColor; opacity: 0; transition: opacity .2s; }
+      .sections-panel a[aria-current="true"] { color: var(--accent); }
+      .sections-panel a[aria-current="true"] .mark { opacity: 1; }
+      .header-actions { display: flex; align-items: center; gap: clamp(10px, 2vw, 16px); }
+      .resume-link {
+        display: inline-flex; align-items: center; gap: 8px; height: 42px; padding: 0 16px;
+        font-weight: 600; text-decoration: none; border: 1px solid currentColor; border-radius: var(--r-pill);
+      }
+      .resume-link svg { width: 16px; height: 16px; }
+      @media (max-width: 480px) {
+        .resume-link { padding: 0 13px; }
+        .resume-link span { display: none; } /* icon only on phones; aria-label keeps the name */
+      }
+
+      /* Theme switch: two options, an outlined thumb marks the active one */
+      .theme-switch { position: relative; display: inline-flex; padding: 3px; border: 1px solid currentColor; border-radius: var(--r-pill); }
+      .theme-switch button {
+        position: relative; z-index: 1;
+        display: grid; place-items: center; width: 34px; height: 34px; padding: 0;
+        color: inherit; background: none; border: 0; cursor: pointer;
+        opacity: .55; transition: opacity .3s;
+      }
+      .theme-switch svg { width: 18px; height: 18px; }
+      .theme-switch button[aria-pressed="true"], .theme-switch button:hover { opacity: 1; }
+      .theme-switch .thumb {
+        position: absolute; top: 3px; bottom: 3px; left: 3px; width: var(--thumb-w, 50%);
+        background: currentColor; opacity: .18; border-radius: var(--r-pill);
+        transform: translateX(var(--thumb-x, 0));
+      }
+      /* Slide only on user switches, so the initial position snaps into place */
+      .theme-switch.is-switching .thumb { transition: transform .5s cubic-bezier(.7,0,.2,1), width .5s cubic-bezier(.7,0,.2,1);
+      }
+      /* ---------- Hero ---------- */
+      .hero {
+        position: relative; min-height: 100svh;
+        padding: 96px var(--gutter) 40px;
+        display: grid; grid-template-rows: 1fr auto; overflow: hidden;
+      }
+      .hero-stage { position: relative; display: grid; place-items: center; }
+      .hero-name {
+        position: absolute; inset: 0; margin: 0;
+        display: flex; flex-direction: column; justify-content: center;
+        font-size: clamp(3.75rem, 14.5vw, 16rem); font-weight: 700; line-height: .86; letter-spacing: -0.055em;
+        font-variation-settings: "opsz" 96;
+        pointer-events: none;
+      }
+      .hero-name .row { display: block; overflow: hidden; padding-bottom: .04em; }
+      .hero-name .row:last-child { text-align: right; }
+      .hero-name .ch { display: inline-block; will-change: transform; }
+      .portrait {
+        position: relative; z-index: 2;
+        width: clamp(200px, 26vw, 380px); aspect-ratio: 4 / 5;
+        border-radius: var(--r-portrait); overflow: hidden;
+        background: var(--line);
+        will-change: transform, clip-path;
+      }
+      .portrait img { width: 100%; height: 118%; object-fit: cover; object-position: center 20%; }
+      .hero-foot {
+        display: grid; grid-template-columns: minmax(0, 34ch) auto; justify-content: space-between; align-items: end;
+        gap: 24px; padding-top: 32px;
+      }
+      .hero-foot p { margin: 0; font-size: clamp(1.05rem, 1rem + .4vw, 1.3rem); line-height: 1.45; }
+      .status { display: inline-flex; align-items: center; gap: 10px; color: var(--muted); font-size: .95rem; }
+      .status .dot { width: 8px; height: 8px; border-radius: var(--r-dot); background: #2E9E6A; box-shadow: 0 0 0 4px rgb(46 158 106 / .18); }
+      .scroll-cue { display: block; margin-top: 6px; color: var(--muted); font-size: .95rem; text-decoration: none; }
+      .scroll-cue:hover { color: var(--fg); }
+
+      /* ---------- Experience: timeline ----------
+         Solid surface (covers the page pattern). Stages run down the left rail; the sticky aside
+         counts the year through each stage and shows that stage's image. */
+      .experience {
+        position: relative; background: var(--surface);
+        padding: clamp(96px, 14vw, 200px) var(--gutter);
+      }
+      .experience-intro { margin-bottom: clamp(56px, 8vw, 112px); }
+      .section-title {
+        margin: 0 0 20px; font-size: clamp(2.5rem, 5.5vw, 5rem); font-weight: 650; line-height: .95; letter-spacing: -0.045em;
+      }
+      .experience-intro p { margin: 0; max-width: 38ch; color: var(--muted); }
+
+      .timeline { display: grid; grid-template-columns: minmax(0, 7fr) minmax(0, 5fr); gap: clamp(32px, 6vw, 96px); }
+      .tl-list { position: relative; list-style: none; margin: 0; padding: 0 0 0 36px; }
+      .tl-list::before, .tl-list::after { content: ""; position: absolute; top: 8px; bottom: 0; left: 5px; width: 1px; background: var(--line); }
+      .tl-list::after { width: 2px; left: 4.5px; background: var(--accent); transform-origin: top; transform: scaleY(var(--progress, 1)); }
+      .tl-item { position: relative; padding-bottom: clamp(72px, 10vw, 140px); }
+      .tl-item:last-child { padding-bottom: 0; }
+      .tl-item::before {
+        content: ""; position: absolute; left: -36px; top: .45em; width: 11px; height: 11px;
+        border-radius: var(--r-dot); background: var(--surface); border: 1.5px solid var(--line);
+        transition: background-color .3s, border-color .3s, transform .4s cubic-bezier(.34,1.56,.64,1);
+      }
+      .tl-item.is-active::before { background: var(--accent); border-color: var(--accent); transform: scale(1.35); }
+      .tl-when { display: flex; align-items: baseline; gap: 12px; color: var(--muted); font-variant-numeric: tabular-nums; }
+      .tl-kind { font-size: .85rem; padding: 1px 10px; border: 1px solid var(--line); border-radius: var(--r-pill); }
+      .tl-title { margin: 10px 0 4px; font-size: clamp(1.5rem, 1.2rem + 1.3vw, 2.4rem); font-weight: 600; line-height: 1.1; letter-spacing: -0.025em; }
+      .tl-org { margin: 0 0 14px; color: var(--muted); }
+      .tl-desc { margin: 0; max-width: 52ch; }
+      .tags { display: flex; flex-wrap: wrap; gap: 8px; margin: 18px 0 0; padding: 0; list-style: none; }
+      .tags li { font-size: .85rem; padding: 4px 12px; border: 1px solid var(--line); border-radius: var(--r-pill); color: var(--muted); }
+
+      .tl-aside { position: sticky; top: 96px; align-self: start; }
+      .tl-year {
+        display: block; margin-bottom: 24px;
+        font-size: clamp(4rem, 9vw, 8.5rem); font-weight: 650; line-height: .9; letter-spacing: -0.05em; font-variant-numeric: tabular-nums;
+      }
+      .tl-media { position: relative; aspect-ratio: 4 / 5; width: min(100%, calc((100vh - 360px) * .8)); }
+      .tl-media figure { position: absolute; inset: 0; margin: 0; display: grid; grid-template-rows: 1fr auto; visibility: hidden; }
+      .tl-media figcaption { margin-top: 12px; color: var(--muted); font-size: .9rem; }
+      /* Photo placeholder: swap the .ph div for an <img> when the real photo is ready */
+      .ph {
+        display: grid; place-content: center; justify-items: center; gap: 12px; overflow: hidden;
+        color: var(--muted); border: 1px solid var(--line); border-radius: var(--r-panel);
+        background: linear-gradient(160deg, color-mix(in srgb, var(--accent) 16%, var(--bg)), color-mix(in srgb, var(--fg) 10%, var(--bg)));
+      }
+      .ph svg { width: 44px; height: 44px; }
+      .ph span { font-size: .9rem; }
+      .tl-media img { width: 100%; height: 100%; object-fit: cover; border-radius: var(--r-panel); }
+      /* Certificate placeholder card */
+      .cert {
+        position: relative; align-self: center; aspect-ratio: 4 / 3; padding: 8%;
+        display: flex; flex-direction: column; justify-content: center; align-items: center; gap: 6px; text-align: center;
+        background: var(--bg); border: 1px solid var(--line); border-radius: var(--r-focus);
+        box-shadow: inset 0 0 0 6px var(--bg), inset 0 0 0 7px var(--line), 0 28px 48px -30px rgb(0 0 0 / .55);
+      }
+      .cert small { color: var(--muted); font-size: .8rem; }
+      .cert strong { font-size: clamp(1.1rem, 1.6vw, 1.5rem); font-weight: 600; line-height: 1.15; }
+      .cert span { color: var(--muted); font-size: .9rem; }
+      .cert::after { content: ""; position: absolute; right: 8%; bottom: 10%; width: 40px; height: 40px; border-radius: 50%; background: var(--accent); opacity: .85; }
+
+      /* ---------- Contact ---------- */
+      .contact {
+        min-height: 100svh; padding: clamp(96px, 12vw, 160px) var(--gutter) 32px;
+        display: grid; grid-template-rows: 1fr auto; gap: 64px;
+        background: color-mix(in srgb, var(--inv-bg) calc(var(--mix, 1) * 100%), var(--bg)); color: var(--inv-fg);
+      }
+      .contact-main { align-self: center; }
+      .contact-lede { margin: 0 0 24px; color: var(--inv-muted); font-size: clamp(1.1rem, 1rem + .5vw, 1.4rem); max-width: 30ch; }
+      .contact-email {
+        display: inline-block; text-decoration: none;
+        font-size: clamp(2.1rem, 8.4vw, 9rem); font-weight: 650; line-height: 1; letter-spacing: -0.05em;
+        overflow-wrap: anywhere;
+      }
+      .contact-email .u { display: block; height: 3px; margin-top: .12em; background: currentColor; transform-origin: left; transform: scaleX(0); transition: transform .6s cubic-bezier(.2,.7,.2,1); }
+      .contact-email:hover { color: var(--inv-accent); }
+      .contact-email:hover .u, .contact-email:focus-visible .u { transform: scaleX(1); }
+      .contact-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 32px; margin-top: clamp(56px, 8vw, 112px); }
+      .contact-grid h3 { margin: 0 0 12px; font-size: 1rem; font-weight: 400; color: var(--inv-muted); }
+      .contact-grid p, .contact-grid ul { margin: 0; padding: 0; list-style: none; }
+      .socials li + li { margin-top: 6px; }
+      .socials a { display: inline-flex; align-items: center; gap: 10px; text-decoration: none; }
+      .socials a:hover { color: var(--inv-accent); }
+      .socials svg { width: 18px; height: 18px; flex: none; }
+      .footer { display: flex; justify-content: space-between; gap: 16px; padding-top: 24px; border-top: 1px solid var(--inv-line); color: var(--inv-muted); font-size: .9rem; }
+      .footer button { font: inherit; color: inherit; background: none; border: 0; cursor: pointer; padding: 0; }
+      .footer button:hover { color: var(--inv-fg); }
+
+      /* ---------- Responsive ---------- */
+      @media (max-width: 860px) {
+        /* Aside becomes a sticky strip above the stages: year on the left, small image on the right */
+        .timeline { grid-template-columns: 1fr; }
+        .tl-aside {
+          order: -1; top: 72px; z-index: 2; display: flex; align-items: center; justify-content: space-between; gap: 16px;
+          padding: 12px 0; background: var(--surface); border-bottom: 1px solid var(--line);
+        }
+        .tl-year { margin: 0; font-size: 3rem; }
+        .tl-media { width: 64px; }
+        .tl-media figcaption, .tl-media .ph span, .tl-media .cert > * { display: none; }
+        .tl-media .ph svg { width: 24px; height: 24px; }
+        .tl-media .cert::after { width: 12px; height: 12px; }
+        .contact-grid { grid-template-columns: 1fr; gap: 28px; }
+      }
+      @media (max-width: 640px) {
+        .hero-stage { display: flex; flex-direction: column; align-items: center; justify-content: center; }
+        .hero-name { position: relative; inset: auto; align-self: stretch; font-size: 19vw; }
+        .hero-foot { grid-template-columns: 1fr; }
+        .portrait { width: min(60vw, 260px); margin-top: -6vw; }
+      }
+    </style>
+    <script>
+      // Apply the saved theme before first paint so the page never flashes the wrong one.
+      (() => {
+        let saved = null;
+        try { saved = localStorage.getItem('theme'); } catch {}
+        const prefersDark = matchMedia('(prefers-color-scheme: dark)').matches;
+        document.documentElement.dataset.theme = saved || (prefersDark ? 'professional' : 'casual');
+      })();
+    </script>
+  </head>
+  <body>
+    <div class="bg-pattern" aria-hidden="true"></div>
+    <div class="cursor" aria-hidden="true"><div class="cursor-ring"><span></span></div><div class="cursor-dot"><span></span></div></div>
+    <header class="site-header">
+      <button class="section-toggle" type="button" data-cursor="stick" aria-expanded="false" aria-controls="sections">
+        <span class="sec-icon"></span><span class="sec-label"></span>
+        <svg class="chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg>
+      </button>
+      <div class="header-actions">
+        <a class="resume-link" href="#" download data-cursor="stick" aria-label="Download résumé">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M12 4v12m0 0-5-5m5 5 5-5M5 20h14"/></svg>
+          <span>Résumé</span>
+        </a>
+        <div class="theme-switch" role="group" aria-label="Theme">
+          <span class="thumb" aria-hidden="true"></span>
+          <button type="button" data-theme-value="professional" data-cursor="stick" aria-pressed="false" aria-label="Professional theme" title="Professional">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="miter" stroke-linecap="square" aria-hidden="true"><path d="M3 7.5h18v12H3zM8.5 7.5V4.5h7v3M3 12.5h18M10.5 12.5v2h3v-2"/></svg>
+          </button>
+          <button type="button" data-theme-value="casual" data-cursor="stick" aria-pressed="false" aria-label="Casual theme" title="Casual">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round" stroke-linecap="round" aria-hidden="true"><path d="M4.5 10.5h12v4.5a5 5 0 0 1-5 5h-2a5 5 0 0 1-5-5zM16.5 11.5h1.25a2.75 2.75 0 0 1 0 5.5H16M8.5 3.5c-.8.9-.8 1.9 0 2.8M12 3.5c-.8.9-.8 1.9 0 2.8"/></svg>
+          </button>
+        </div>
+      </div>
+    </header>
+
+    <nav class="sections-panel" id="sections" aria-label="Sections">
+      <ul>
+        <li><a href="#top" data-cursor="stick"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round" stroke-linecap="round" aria-hidden="true"><path d="M3.5 10.5 12 3.5l8.5 7V20a.5.5 0 0 1-.5.5h-5v-6h-6v6H4a.5.5 0 0 1-.5-.5z"/></svg><span>Home</span><span class="mark" aria-hidden="true"></span></a></li>
+        <li><a href="#experience" data-cursor="stick"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round" stroke-linecap="round" aria-hidden="true"><path d="m12 3 9 4.5-9 4.5-9-4.5zM3 12l9 4.5 9-4.5M3 16.5 12 21l9-4.5"/></svg><span>Experience</span><span class="mark" aria-hidden="true"></span></a></li>
+        <li><a href="#contact" data-cursor="stick"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round" stroke-linecap="round" aria-hidden="true"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="m3.5 7 8.5 6 8.5-6"/></svg><span>Contact</span><span class="mark" aria-hidden="true"></span></a></li>
+      </ul>
+    </nav>
+
+    <main>
+      <section class="hero" id="top" aria-label="Introduction">
+        <div class="hero-stage">
+          <h1 class="hero-name" aria-label="Chan Myae Khin">
+            <span class="row" data-dir="-1" aria-hidden="true">Chan Myae</span>
+            <span class="row" data-dir="1" aria-hidden="true">Khin</span>
+          </h1>
+          <figure class="portrait" style="margin:0">
+            <!-- Placeholder portrait: replace with your own photo -->
+            <img src="https://images.unsplash.com/photo-1494790108377-be9c29b29330?auto=format&fit=crop&w=800&q=80"
+                 alt="Portrait of Chan Myae Khin" width="800" height="1000" fetchpriority="high">
+          </figure>
+        </div>
+        <div class="hero-foot">
+          <p class="mask"><span>Product designer turning complicated tools into calm, obvious software. Seven years across health, finance and climate.</span></p>
+          <div>
+            <span class="status"><span class="dot" aria-hidden="true"></span>Available for freelance and full-time</span>
+            <a class="scroll-cue" href="#experience">See my experience</a>
+          </div>
+        </div>
+      </section>
+
+      <section class="experience" id="experience" aria-labelledby="exp-title">
+        <div class="experience-intro">
+          <h2 class="section-title" id="exp-title">How I got here</h2>
+          <p>School, the first internship, and every role since. Scroll to move through the years.</p>
+        </div>
+
+        <div class="timeline">
+          <ol class="tl-list">
+            <li class="tl-item" data-from="2009" data-to="2013">
+              <div class="tl-when"><span>2009 – 2013</span><span class="tl-kind">Education</span></div>
+              <h3 class="tl-title">Middle school</h3>
+              <p class="tl-org">Riverside Middle School</p>
+              <p class="tl-desc">Where the drawing habit started: the margins of every notebook, and posters for the school art club.</p>
+            </li>
+            <li class="tl-item" data-from="2013" data-to="2017">
+              <div class="tl-when"><span>2013 – 2017</span><span class="tl-kind">Education</span></div>
+              <h3 class="tl-title">College</h3>
+              <p class="tl-org">Northbridge College, B.A. in Visual Design</p>
+              <p class="tl-desc">Studied typography, interaction design and research methods. Spent the final year building a bus-route app with the computer science club.</p>
+            </li>
+            <li class="tl-item" data-from="2017" data-to="2017">
+              <div class="tl-when"><span>2017</span><span class="tl-kind">Education</span></div>
+              <h3 class="tl-title">Graduation</h3>
+              <p class="tl-org">B.A. in Visual Design, first-class honours</p>
+              <p class="tl-desc">Thesis: a wayfinding system for a city hospital, tested with 40 patients and their families.</p>
+            </li>
+            <li class="tl-item" data-from="2018" data-to="2019">
+              <div class="tl-when"><span>2018 – 2019</span><span class="tl-kind">Work</span></div>
+              <h3 class="tl-title">Design Intern</h3>
+              <p class="tl-org">Brightpath Labs</p>
+              <p class="tl-desc">Ran usability sessions and turned findings into wireframes for an education app. Learned to love the first draft that gets thrown away.</p>
+              <ul class="tags"><li>Usability testing</li><li>Wireframing</li></ul>
+            </li>
+            <li class="tl-item" data-from="2019" data-to="2021">
+              <div class="tl-when"><span>2019 – 2021</span><span class="tl-kind">Work</span></div>
+              <h3 class="tl-title">UI Designer</h3>
+              <p class="tl-org">Fieldnote Studio</p>
+              <p class="tl-desc">Shipped websites and dashboards for twelve clients, including an emissions tracker used by 200 farms. Set up the studio's first shared component library.</p>
+              <ul class="tags"><li>Web</li><li>Data visualization</li><li>Agency</li></ul>
+            </li>
+            <li class="tl-item" data-from="2021" data-to="2023">
+              <div class="tl-when"><span>2021 – 2023</span><span class="tl-kind">Work</span></div>
+              <h3 class="tl-title">Product Designer</h3>
+              <p class="tl-org">Lumen Bank</p>
+              <p class="tl-desc">Designed the mobile onboarding and savings goals features. Took account sign-up completion from 41% to 68% over four release cycles.</p>
+              <ul class="tags"><li>Mobile</li><li>Fintech</li><li>Experimentation</li></ul>
+            </li>
+            <li class="tl-item" data-from="2023" data-to="now">
+              <div class="tl-when"><span>2023 – Now</span><span class="tl-kind">Work</span></div>
+              <h3 class="tl-title">Senior Product Designer</h3>
+              <p class="tl-org">Northwind Health</p>
+              <p class="tl-desc">Lead designer for the clinic scheduling platform. Rebuilt booking around how front-desk staff actually work, cutting average booking time from 3 minutes to 50 seconds.</p>
+              <ul class="tags"><li>Design systems</li><li>Research</li><li>B2B SaaS</li></ul>
+            </li>
+          </ol>
+          <aside class="tl-aside" aria-hidden="true">
+            <span class="tl-year">2009</span>
+            <!-- One figure per stage, same order as the list -->
+            <div class="tl-media">
+              <figure><div class="ph"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round" stroke-linecap="round" aria-hidden="true"><path d="M4 21V10l8-5 8 5v11"/><path d="M9 21v-5h6v5M12 5V2.5h3"/></svg><span>Middle school photo</span></div><figcaption>Riverside Middle School, 2013</figcaption></figure>
+              <figure><div class="ph"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round" stroke-linecap="round" aria-hidden="true"><path d="M3 9h18L12 4zM5 9v9M9.5 9v9M14.5 9v9M19 9v9M3 20h18"/></svg><span>College photo</span></div><figcaption>Northbridge College campus</figcaption></figure>
+              <figure><div class="ph"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round" stroke-linecap="round" aria-hidden="true"><path d="M2 9.5 12 5l10 4.5-10 4.5z"/><path d="M6 11.5V16c0 1.1 2.7 2.5 6 2.5s6-1.4 6-2.5v-4.5M22 9.5V14"/></svg><span>Graduation photo</span></div><figcaption>Graduation day, 2017</figcaption></figure>
+              <figure><div class="cert"><small>Certificate of internship</small><strong>Product Design Internship</strong><span>Brightpath Labs, 2019</span></div><figcaption>Internship certificate</figcaption></figure>
+              <figure><div class="cert"><small>Certificate of completion</small><strong>User Research Methods</strong><span>Online course, 2020</span></div><figcaption>User research certificate</figcaption></figure>
+              <figure><div class="cert"><small>Certificate of completion</small><strong>Accessible Design</strong><span>Online course, 2022</span></div><figcaption>Accessibility certificate</figcaption></figure>
+              <figure><div class="cert"><small>Certificate of completion</small><strong>Design Leadership Programme</strong><span>2024</span></div><figcaption>Design leadership certificate</figcaption></figure>
+            </div>
+          </aside>
+        </div>
+      </section>
+
+      <section class="contact" id="contact" aria-labelledby="contact-title">
+        <div class="contact-main">
+          <h2 class="contact-lede" id="contact-title">Have a product that needs to feel simpler? Write to me.</h2>
+          <a class="contact-email" href="mailto:hello@chanmyaekhin.com">
+            <span class="mask"><span>hello@</span></span>
+            <span class="mask"><span>chanmyaekhin.com</span></span>
+            <span class="u" aria-hidden="true"></span>
+          </a>
+
+          <div class="contact-grid">
+            <div class="reveal">
+              <h3>Elsewhere</h3>
+              <ul class="socials">
+                <li><a href="#" aria-label="LinkedIn profile">
+                  <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M4.98 3.5a2.5 2.5 0 1 1 0 5 2.5 2.5 0 0 1 0-5ZM3 9.75h4v11H3v-11Zm6.5 0h3.8v1.5h.06c.53-1 1.83-2.05 3.77-2.05 4.03 0 4.77 2.65 4.77 6.1v6.45h-4v-5.72c0-1.36-.02-3.12-1.9-3.12-1.9 0-2.2 1.48-2.2 3.02v5.82h-4v-11Z"/></svg>LinkedIn</a></li>
+                <li><a href="#" aria-label="Dribbble profile">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M5.5 5.8c4.5 4 7.8 9 9.6 14.6M3.2 10.5c5.2.3 10-.9 14.4-4.4M8.6 20.3c2.5-4.6 6.6-6.9 12.2-6.3"/></svg>Dribbble</a></li>
+                <li><a href="#" aria-label="GitHub profile">
+                  <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 2a10 10 0 0 0-3.16 19.49c.5.09.68-.22.68-.48v-1.7c-2.78.6-3.37-1.34-3.37-1.34-.45-1.16-1.11-1.47-1.11-1.47-.91-.62.07-.6.07-.6 1 .07 1.53 1.03 1.53 1.03.9 1.52 2.34 1.08 2.91.83.09-.65.35-1.09.63-1.34-2.22-.25-4.55-1.11-4.55-4.94 0-1.09.39-1.98 1.03-2.68-.1-.25-.45-1.27.1-2.64 0 0 .84-.27 2.75 1.02a9.58 9.58 0 0 1 5 0c1.91-1.3 2.75-1.02 2.75-1.02.55 1.37.2 2.39.1 2.64.64.7 1.03 1.59 1.03 2.68 0 3.84-2.34 4.68-4.57 4.93.36.31.68.92.68 1.85v2.75c0 .27.18.58.69.48A10 10 0 0 0 12 2Z"/></svg>GitHub</a></li>
+              </ul>
+            </div>
+            <div class="reveal">
+              <h3>Phone</h3>
+              <p><a href="tel:+10000000000" style="display:inline-block; text-decoration:none">+1 (000) 000-0000</a></p>
+            </div>
+            <div class="reveal">
+              <h3>Working hours</h3>
+              <p>Remote, overlapping with Asia and European time zones. Replies within two working days.</p>
+            </div>
+          </div>
+        </div>
+
+        <footer class="footer">
+          <span>© 2026 Chan Myae Khin</span>
+          <button type="button" data-to-top>Back to top</button>
+        </footer>
+      </section>
+    </main>
+
+    <script>
+      gsap.registerPlugin(ScrollTrigger);
+
+      const reduceMotion = matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+      // Lenis drives scroll; GSAP's ticker drives Lenis so ScrollTrigger stays in sync.
+      const lenis = new Lenis({ autoRaf: false, anchors: { offset: 0 }, respectReducedMotion: true });
+      lenis.on('scroll', ScrollTrigger.update);
+
+      // ---------- Background pattern: slow scroll drift + cursor spotlight ----------
+      const bgPattern = document.querySelector('.bg-pattern');
+      lenis.on('scroll', ({ scroll }) => bgPattern.style.setProperty('--sy', scroll.toFixed(1)));
+      if (matchMedia('(hover: hover) and (pointer: fine)').matches) {
+        const spot = { x: -999, y: -999 };
+        const renderSpot = () => {
+          bgPattern.style.setProperty('--mx', `${spot.x}px`);
+          bgPattern.style.setProperty('--my', `${spot.y}px`);
+        };
+        const ease = { duration: reduceMotion ? 0 : 0.7, ease: 'power3.out', onUpdate: renderSpot };
+        const xTo = gsap.quickTo(spot, 'x', ease);
+        const yTo = gsap.quickTo(spot, 'y', ease);
+        addEventListener('pointermove', (e) => {
+          if (spot.x === -999) { spot.x = e.clientX; spot.y = e.clientY; } // first move: appear under the cursor, no fly-in
+          xTo(e.clientX); yTo(e.clientY);
+          bgPattern.style.setProperty('--spot', 1);
+        });
+        document.documentElement.addEventListener('pointerleave', () => bgPattern.style.setProperty('--spot', 0));
+      }
+
+      // ---------- Custom cursor: dot tracks exactly, ring trails; hover / hold / click states ----------
+      if (matchMedia('(hover: hover) and (pointer: fine)').matches) {
+        const cursor = document.querySelector('.cursor');
+        const ring = cursor.querySelector('.cursor-ring');
+        const dot = cursor.querySelector('.cursor-dot');
+        const lag = { duration: reduceMotion ? 0 : 0.45, ease: 'power3.out' };
+        const ringX = gsap.quickTo(ring, 'x', lag), ringY = gsap.quickTo(ring, 'y', lag);
+        const dotX = gsap.quickSetter(dot, 'x', 'px'), dotY = gsap.quickSetter(dot, 'y', 'px');
+        const interactive = 'a, button, [data-cursor]';
+        const ringBox = ring.firstElementChild;
+        let seen = false;
+        let stuck = null; // control the ring is currently melted onto
+        let mark = false; // stuck on a link: highlighter mode
+        // Highlighter measures the text itself, so block-level links don't get a full-width bar
+        const box = (el) => { if (!mark) return el.getBoundingClientRect(); const r = document.createRange(); r.selectNodeContents(el); return r.getBoundingClientRect(); };
+        let pulled = null; // link currently drawn toward the pointer
+        const pullLimit = gsap.utils.clamp(-14, 14); // big links (the email) would otherwise travel too far
+        let hovered = null; // element under the pointer
+        const last = { x: 0, y: 0 }; // last pointer position, for re-checking hover on scroll
+
+        addEventListener('pointermove', (e) => {
+          if (e.pointerType !== 'mouse') return;
+          if (!seen) { // first move: place the ring under the pointer instead of flying in from the corner
+            seen = true;
+            gsap.set(ring, { x: e.clientX, y: e.clientY });
+            document.documentElement.classList.add('has-cursor');
+          }
+          last.x = e.clientX; last.y = e.clientY;
+          follow(e.clientX, e.clientY);
+          cursor.classList.add('is-visible');
+        });
+        function follow(px, py) {
+          dotX(px); dotY(py);
+          if (stuck) { // sit on the control, leaning slightly toward the pointer
+            const r = box(stuck);
+            const cx = r.left + r.width / 2, cy = r.top + r.height / 2;
+            const lean = mark ? 0.08 : 0.2; // how far the ring drifts toward the pointer
+            ringX(cx + (px - cx) * lean); ringY(cy + (py - cy) * lean);
+            if (mark && !reduceMotion) { // magnetic link: pull from its resting centre, not the already-moved one
+              pulled = stuck;
+              gsap.to(stuck, {
+                x: pullLimit((px - (cx - gsap.getProperty(stuck, 'x'))) * 0.3),
+                y: pullLimit((py - (cy - gsap.getProperty(stuck, 'y'))) * 0.3),
+                duration: 0.6, ease: 'power3.out', overwrite: 'auto',
+              });
+            }
+          } else {
+            ringX(px); ringY(py);
+          }
+        }
+        addEventListener('pointerover', (e) => hover(e.target));
+        // Scrolling moves the page under a still mouse without firing pointer events, so re-check what's under it
+        addEventListener('scroll', () => {
+          if (!seen) return;
+          const t = document.elementFromPoint(last.x, last.y);
+          if (t && t !== hovered) hover(t);
+          follow(last.x, last.y);
+        }, { passive: true });
+        function hover(target) {
+          hovered = target;
+          stuck = target.closest('[data-cursor="stick"], a, button');
+          mark = !!stuck && stuck.dataset.cursor !== 'stick';
+          if (pulled && pulled !== stuck) { // let go: spring back into place
+            gsap.to(pulled, { x: 0, y: 0, duration: 0.8, ease: 'elastic.out(1, 0.5)', overwrite: 'auto' });
+            pulled = null;
+          }
+          if (stuck) {
+            const r = box(stuck);
+            const pad = mark ? [12, 4] : [0, 0]; // highlighter overhangs the text a little
+            ringBox.style.setProperty('--rw', `${r.width + pad[0]}px`);
+            ringBox.style.setProperty('--rh', `${r.height + pad[1]}px`);
+            ringBox.style.borderRadius = getComputedStyle(stuck).getPropertyValue('--cursor-radius');
+          } else {
+            ringBox.style.removeProperty('--rw');
+            ringBox.style.removeProperty('--rh');
+            ringBox.style.borderRadius = '';
+          }
+          cursor.classList.toggle('is-stuck', !!stuck);
+          cursor.classList.toggle('is-mark', mark);
+          const link = !!target.closest(interactive);
+          // Caret only over elements that hold their own text and do nothing when clicked
+          cursor.classList.toggle('is-text', !stuck && !link && [...target.childNodes].some((n) => n.nodeType === 3 && n.textContent.trim()));
+        }
+        addEventListener('pointerdown', (e) => e.pointerType === 'mouse' && cursor.classList.add('is-down'));
+        addEventListener('pointerup', (e) => {
+          if (e.pointerType !== 'mouse') return;
+          cursor.classList.remove('is-down');
+          if (reduceMotion) return;
+          const ripple = document.createElement('div');
+          ripple.className = 'cursor-ripple';
+          cursor.appendChild(ripple);
+          gsap.fromTo(ripple, { x: e.clientX, y: e.clientY, scale: 0.6, opacity: 0.9 },
+            { scale: 2.6, opacity: 0, duration: 0.7, ease: 'power2.out', onComplete: () => ripple.remove() });
+        });
+        document.documentElement.addEventListener('pointerleave', () => cursor.classList.remove('is-visible', 'is-down'));
+      }
+      gsap.ticker.add((t) => lenis.raf(t * 1000));
+      gsap.ticker.lagSmoothing(0);
+
+      // ---------- Section menu ----------
+      const header = document.querySelector('.site-header');
+      const secToggle = document.querySelector('.section-toggle');
+      const secPanel = document.getElementById('sections');
+      const secLinks = [...secPanel.querySelectorAll('a')];
+      const secIcon = secToggle.querySelector('.sec-icon');
+      const secLabel = secToggle.querySelector('.sec-label');
+      let currentLink = null;
+
+      const panelTl = gsap.timeline({ paused: true })
+        .fromTo(secPanel, { autoAlpha: 0, y: -8, scale: 0.96 }, { autoAlpha: 1, y: 0, scale: 1, duration: 0.35, ease: 'power3.out' })
+        .from(secLinks, { autoAlpha: 0, x: -10, duration: 0.3, stagger: 0.05, ease: 'power2.out' }, 0.08);
+
+      const isPanelOpen = () => secToggle.getAttribute('aria-expanded') === 'true';
+      function setPanel(open) {
+        secToggle.setAttribute('aria-expanded', open);
+        if (reduceMotion) panelTl.progress(open ? 1 : 0);
+        else open ? panelTl.timeScale(1).play() : panelTl.timeScale(1.8).reverse();
+        if (open) (currentLink || secLinks[0]).focus({ preventScroll: true });
+      }
+      secToggle.addEventListener('click', () => setPanel(!isPanelOpen()));
+      secLinks.forEach((a) => a.addEventListener('click', () => setPanel(false))); // Lenis anchors does the scrolling
+      document.addEventListener('pointerdown', (e) => {
+        if (isPanelOpen() && !secPanel.contains(e.target) && !secToggle.contains(e.target)) setPanel(false);
+      });
+      addEventListener('keydown', (e) => {
+        if (!isPanelOpen()) return;
+        if (e.key === 'Escape') { setPanel(false); secToggle.focus(); }
+        else if (e.key === 'Tab') setPanel(false);
+        else if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
+          e.preventDefault();
+          const step = e.key === 'ArrowDown' ? 1 : -1;
+          const i = secLinks.indexOf(document.activeElement);
+          secLinks[(i + step + secLinks.length) % secLinks.length].focus();
+        }
+      });
+
+      // Name the section in view: label rolls up, width eases to fit, icon pops in.
+      function setCurrentSection(id) {
+        const link = secLinks.find((a) => a.hash === `#${id}`);
+        if (!link || link === currentLink) return;
+        const first = !currentLink;
+        currentLink = link;
+        const label = link.textContent.trim();
+        secLinks.forEach((a) => a.setAttribute('aria-current', a === link));
+        header.dataset.surface = id;
+        secToggle.setAttribute('aria-label', `Sections menu, current section: ${label}`);
+
+        const old = [...secLabel.children];
+        const next = document.createElement('span');
+        next.textContent = label;
+        secLabel.appendChild(next);
+        secIcon.innerHTML = link.querySelector('svg').outerHTML;
+
+        if (first || reduceMotion) {
+          old.forEach((o) => o.remove());
+          secLabel.style.width = `${next.offsetWidth}px`;
+          return;
+        }
+        const roll = { duration: 0.5, ease: 'power3.inOut' };
+        gsap.to(old, { ...roll, yPercent: -100, autoAlpha: 0, onComplete: () => old.forEach((o) => o.remove()) });
+        gsap.from(next, { ...roll, yPercent: 100, autoAlpha: 0 });
+        gsap.to(secLabel, { ...roll, width: next.offsetWidth });
+        gsap.from(secIcon.firstElementChild, { scale: 0.4, rotate: -25, autoAlpha: 0, duration: 0.5, ease: 'back.out(2)' });
+      }
+      // ---------- Timeline: the year counts through each stage; the aside shows that stage's image ----------
+      const tlItems = gsap.utils.toArray('.tl-item');
+      const tlFigs = gsap.utils.toArray('.tl-media figure'); // same order as tlItems
+      const tlYear = document.querySelector('.tl-year');
+      let tlActive = -1;
+      function showStage(i) {
+        if (i === tlActive) return;
+        const prev = tlFigs[tlActive], next = tlFigs[i];
+        tlItems.forEach((it, k) => it.classList.toggle('is-active', k === i));
+        tlActive = i;
+        if (!prev || reduceMotion) {
+          gsap.set(tlFigs, { autoAlpha: 0 });
+          gsap.set(next, { autoAlpha: 1 });
+          return;
+        }
+        gsap.to(prev, { autoAlpha: 0, y: -24, scale: 0.97, duration: 0.4, ease: 'power2.in', overwrite: true });
+        gsap.fromTo(next, { autoAlpha: 0, y: 32, scale: 0.97 }, { autoAlpha: 1, y: 0, scale: 1, duration: 0.6, delay: 0.15, ease: 'power3.out', overwrite: true });
+      }
+      tlItems.forEach((item, i) => {
+        const from = +item.dataset.from;
+        const to = item.dataset.to === 'now' ? new Date().getFullYear() : +item.dataset.to;
+        ScrollTrigger.create({
+          trigger: item, start: 'top center', end: 'bottom center',
+          onUpdate: (self) => { tlYear.textContent = Math.floor(from + (to - from) * self.progress); },
+          onToggle: (self) => self.isActive && showStage(i),
+        });
+      });
+      showStage(0);
+
+      const sectionTriggers = ['top', 'experience', 'contact'].map((id) => ScrollTrigger.create({
+        trigger: `#${id}`, start: 'top center', end: 'bottom center',
+        onToggle: (self) => self.isActive && setCurrentSection(id),
+      }));
+      setCurrentSection('top');
+      // Restored scroll position: re-pick the active section once triggers measure.
+      ScrollTrigger.addEventListener('refresh', () => {
+        const active = sectionTriggers.find((t) => t.isActive);
+        if (active) setCurrentSection(active.trigger.id);
+      });
+      document.fonts.ready.then(() => { secLabel.style.width = `${secLabel.lastElementChild.offsetWidth}px`; });
+
+      document.querySelector('[data-to-top]').addEventListener('click', () => lenis.scrollTo(0, { duration: 2 }));
+
+      // ---------- Theme switch ----------
+      const themeSwitch = document.querySelector('.theme-switch');
+      const themeButtons = themeSwitch.querySelectorAll('button');
+
+      function syncThemeSwitch() {
+        const active = document.documentElement.dataset.theme;
+        themeButtons.forEach((b) => {
+          const on = b.dataset.themeValue === active;
+          b.setAttribute('aria-pressed', on);
+          if (on) {
+            themeSwitch.style.setProperty('--thumb-x', `${b.offsetLeft - 3}px`);
+            themeSwitch.style.setProperty('--thumb-w', `${b.offsetWidth}px`);
+          }
+        });
+      }
+
+      function setTheme(theme) {
+        if (theme === document.documentElement.dataset.theme) return;
+        themeSwitch.classList.add('is-switching');
+        const apply = () => { document.documentElement.dataset.theme = theme; syncThemeSwitch(); };
+        if (document.startViewTransition && !reduceMotion) document.startViewTransition(apply);
+        else apply();
+        try { localStorage.setItem('theme', theme); } catch {}
+      }
+
+      themeButtons.forEach((b) => b.addEventListener('click', () => setTheme(b.dataset.themeValue)));
+      syncThemeSwitch();
+      document.fonts.ready.then(syncThemeSwitch); // button widths change once the web font loads
+
+      // ---------- Split hero name into letters ----------
+      document.querySelectorAll('.hero-name .row').forEach((row) => {
+        row.innerHTML = [...row.textContent].map((c) => `<span class="ch">${c === ' ' ? '&nbsp;' : c}</span>`).join('');
+      });
+
+      const mm = gsap.matchMedia();
+      mm.add('(prefers-reduced-motion: no-preference)', () => {
+        // Intro: letters rise, portrait unveils from the bottom, copy follows.
+        gsap.timeline({ defaults: { ease: 'expo.out' } })
+          .from('.hero-name .ch', { yPercent: 105, duration: 1.4, stagger: 0.035 }, 0.1)
+          .fromTo('.portrait', { clipPath: 'inset(100% 0 0 0)' }, { clipPath: 'inset(0% 0 0 0)', duration: 1.5, ease: 'expo.inOut' }, 0)
+          .from('.portrait img', { scale: 1.35, duration: 2 }, 0.1)
+          .from('.hero-foot .mask > span', { yPercent: 105, duration: 1.1 }, 0.8)
+          .from('.hero-foot .status, .scroll-cue', { autoAlpha: 0, y: 10, duration: 0.8, stagger: 0.08 }, 1)
+          .from(header, { autoAlpha: 0, y: -12, duration: 0.8 }, 0.9);
+
+        // Hero scroll: name rows pull apart, portrait drifts and its image parallaxes.
+        const heroST = { trigger: '.hero', start: 'top top', end: 'bottom top', scrub: true };
+        document.querySelectorAll('.hero-name .row').forEach((row) => {
+          gsap.to(row, { xPercent: 22 * +row.dataset.dir, ease: 'none', scrollTrigger: heroST });
+        });
+        gsap.to('.portrait', { yPercent: 18, scale: 0.86, ease: 'none', scrollTrigger: heroST });
+        gsap.to('.portrait img', { yPercent: -12, ease: 'none', scrollTrigger: heroST });
+
+        // Experience: title rises, the rail fills with scroll, each stage slides up as it arrives.
+        gsap.from('.experience-intro > *', {
+          y: 40, autoAlpha: 0, duration: 1, stagger: 0.1, ease: 'power3.out',
+          scrollTrigger: { trigger: '.experience', start: 'top 75%' },
+        });
+        gsap.fromTo('.tl-list', { '--progress': 0 }, {
+          '--progress': 1, ease: 'none',
+          scrollTrigger: { trigger: '.tl-list', start: 'top center', end: 'bottom center', scrub: true },
+        });
+        gsap.utils.toArray('.tl-item').forEach((item) => {
+          gsap.from(item.children, {
+            y: 30, autoAlpha: 0, duration: 0.9, stagger: 0.07, ease: 'power3.out',
+            scrollTrigger: { trigger: item, start: 'top 85%' },
+          });
+        });
+
+        // Contact: background shifts to the inverse surface, then the email rises line by line.
+        gsap.fromTo('.contact', { '--mix': 0 }, {
+          '--mix': 1, ease: 'none',
+          scrollTrigger: { trigger: '.contact', start: 'top 90%', end: 'top 30%', scrub: true },
+        });
+        gsap.timeline({ scrollTrigger: { trigger: '.contact-main', start: 'top 70%' } })
+          .from('.contact-lede', { y: 24, autoAlpha: 0, duration: 0.9, ease: 'power3.out' })
+          .from('.contact-email .mask > span', { yPercent: 110, duration: 1.3, stagger: 0.1, ease: 'expo.out' }, 0.1)
+          .from('.contact-grid .reveal', { y: 30, autoAlpha: 0, duration: 0.9, stagger: 0.1, ease: 'power3.out' }, 0.5);
+      });
+
+      addEventListener('load', () => ScrollTrigger.refresh());
+    </script>
+  </body>
+</html>
